@@ -1,4 +1,4 @@
-name: Build
+name: Build Firmware
 
 on:
   push:
@@ -8,34 +8,41 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    # Get required packages
-    - uses: actions/checkout@v2
-    - uses: carlosperate/arm-none-eabi-gcc-action@v1
-      with:
-        release: '9-2019-q4'
+      # Шаг 1: Загрузка кода из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4  # Обновлено до v4
 
-    # Build with make
-    - name: make
-      env: 
-        VARIANT: VARIANT_ADC
-      run: make
+      # Шаг 2: Установка ARM GCC Toolchain
+      - name: Install ARM GCC
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '9-2019-q4'
 
-    # Build with Platformio
-    - name: PlatformIO Install
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade platformio
-    - name: PlatformIO Run
-      run: pio run
+      # Шаг 3: Кэширование зависимостей PlatformIO
+      - name: Cache PlatformIO
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
 
-    - name: 'Upload Build Artifact'
-      uses: actions/upload-artifact@v3
-      with:
-        path: ${{github.workspace}}/.pio/build/**
-        name: ${{github.event.repository.name}}_build_${{github.run_number}}
-        retention-days: 5
+      # Шаг 4: Установка PlatformIO
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
 
+      # Шаг 5: Сборка через PlatformIO (вариант из platformio.ini)
+      - name: Build with PlatformIO
+        run: pio run
+
+      # Шаг 6: Загрузка артефактов
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: .pio/build/**  # Все собранные прошивки
+          name: firmware-${{ github.sha }}
